@@ -1,0 +1,8 @@
+<launch>
+
+  <node pkg="udp_vehicle" type="sender" name="sender" output="screen">
+
+
+  </node>
+
+</launch>

@@ -1,0 +1,8 @@
+<launch>
+
+  <node pkg="udp_vehicle" type="server" name="server" output="screen">
+
+
+  </node>
+
+</launch>
