@@ -57,16 +57,49 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Server");
     ros::NodeHandle n;
 
-    msg dataFromVeh;
-
+    // SOCKET
     int sockfd;
-    struct sockaddr_in  servaddr;
     char buffer[MAXLINE];
+    struct sockaddr_in servaddr, cliaddr;
 
     // Creating socket file descriptor
     if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
         perror("socket creation failed");
         exit(EXIT_FAILURE);
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
+
+    // Filling server information
+    servaddr.sin_family    = AF_INET; // IPv4
+    servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_port = htons(PORT);
+
+    // Bind the socket with the server address
+    if ( bind(sockfd, (const struct sockaddr *)&servaddr,
+            sizeof(servaddr)) < 0 )
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+
+    // MSG
+    msg dataFromVeh;
+    int status;
+    socklen_t len;
+
+    while(n.ok())
+    {
+        cout<<"----------------------------------------------"<<endl;
+
+        status = recvfrom(sockfd, (char *)buffer, MAXLINE,
+                    MSG_WAITALL, ( struct sockaddr *) &cliaddr,
+                    &len);
+
+        memcpy(&dataFromVeh, buffer, BYTENUM);
+
     }
 
 
