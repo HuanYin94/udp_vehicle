@@ -5,12 +5,13 @@
 
 #include <tf/transform_broadcaster.h>
 #include "geometry_msgs/Pose2D.h"
-#include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Vector3.h"
 #include "ros/publisher.h"
 
 #include <fstream>
 #include <vector>
 #include <time.h>
+#include <math.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,10 +26,9 @@
 #define MAXLINE 1024
 #define BYTENUM 60 // 16 for header only
 
-#define veh_length  8.800
-#define veh_width   2.394
-#define tire_radius 0.875
-
+#define VEH_LEN  8.800
+#define VEH_WID  2.394
+#define TIRE_RD  0.875 // nouse
 
 using namespace std;
 
@@ -58,7 +58,31 @@ struct msg
     float wheel_angle_RR;
 };
 
-// no object coding
+inline float to_radians(float degrees) {
+    return degrees * (M_PI / 180.0);
+}
+
+float wheel_velocity_on_center(float wheel_velocity, float wheel_angle )
+{
+    return wheel_velocity*std::cos(to_radians(wheel_angle));
+}
+
+float wheel_angular_on_center(float wheel_velocity_on_C, float wheel_angle, bool is_out )
+{
+    float turn_radius;
+    if(is_out)
+    {
+        turn_radius = 0.5*(-VEH_WID + VEH_LEN/std::cos(std::abs(to_radians(wheel_angle))));
+    }
+    else
+    {
+        turn_radius = 0.5*(VEH_WID + VEH_LEN/std::cos(std::abs(to_radians(wheel_angle))));
+    }
+
+    return wheel_velocity_on_C / turn_radius;
+
+}
+
 
 int main(int argc, char **argv)
 {
@@ -68,7 +92,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n;
 
     ros::Publisher mag_pose_pub = n.advertise<geometry_msgs::Pose2D>("mag_pose", 100);
-    ros::Publisher wheel_odom_pub = n.advertise<geometry_msgs::Twist>("wheel_odom", 100);
+    ros::Publisher wheel_odom_pub = n.advertise<geometry_msgs::Vector3>("wheel_odom", 100);
 
 
     // SOCKET
@@ -104,8 +128,9 @@ int main(int argc, char **argv)
     socklen_t len;
     geometry_msgs::Pose2D mag_pose;
     int status;
-    geometry_msgs::Twist wheel_odom;
-
+    geometry_msgs::Vector3 wheel_odom;
+    float v_on_center_FL, v_on_center_FR, v_on_center_RL, v_on_center_RR,
+            w_on_center_FL, w_on_center_FR, w_on_center_RL, w_on_center_RR;
 
     // loop closing
     while(n.ok())
@@ -142,12 +167,29 @@ int main(int argc, char **argv)
         printf("WHEEL ANG RL:   %f\n", dataFromVeh.wheel_angle_RL);
         printf("WHEEL ANG RR:   %f\n", dataFromVeh.wheel_angle_RR);
 
-        // publish the messages in ROS
+        // publish the pose message
         mag_pose.x = dataFromVeh.mag_pose_x;
         mag_pose.y = dataFromVeh.mag_pose_y;
         mag_pose.theta = dataFromVeh.mag_heading;
         mag_pose_pub.publish(mag_pose);
 
+        // compute and publish wheel odometry message
+        v_on_center_FL = wheel_velocity_on_center(dataFromVeh.wheel_velocity_FL, dataFromVeh.wheel_angle_FL);
+        v_on_center_FR = wheel_velocity_on_center(dataFromVeh.wheel_velocity_FR, dataFromVeh.wheel_angle_FR);
+        v_on_center_RL = wheel_velocity_on_center(dataFromVeh.wheel_velocity_RL, dataFromVeh.wheel_angle_RL);
+        v_on_center_RR = wheel_velocity_on_center(dataFromVeh.wheel_velocity_RR, dataFromVeh.wheel_angle_RR);
+
+        w_on_center_FL = wheel_angular_on_center(dataFromVeh.wheel_velocity_FL, dataFromVeh.wheel_angle_FL, true);
+        w_on_center_FR = wheel_angular_on_center(dataFromVeh.wheel_velocity_FR, dataFromVeh.wheel_angle_FR, false);
+        w_on_center_RL = wheel_angular_on_center(dataFromVeh.wheel_velocity_RL, dataFromVeh.wheel_angle_RL, true);
+        w_on_center_RR = wheel_angular_on_center(dataFromVeh.wheel_velocity_RR, dataFromVeh.wheel_angle_RR, false);
+
+        // velocity in x, angular in y
+        wheel_odom.x = (v_on_center_FL + v_on_center_FR + v_on_center_RL + v_on_center_RR) / 4;
+        wheel_odom.y = (w_on_center_FL + w_on_center_FR + w_on_center_RL + w_on_center_RR) / 4;
+        wheel_odom.z = 0;
+
+        wheel_odom_pub.publish(wheel_odom);
 
     }
 
