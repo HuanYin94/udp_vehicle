@@ -96,10 +96,11 @@ int main(int argc, char **argv)
     string pubDataFileName;
     ofstream rawDataStream;
     ofstream pubDataStream;
-    n.getParam("rawDataFileName", rawDataFileName);
-    n.getParam("pubDataFileName", pubDataFileName);
-    rawDataStream.open(rawDataFileName);
-    pubDataStream.open(pubDataFileName);
+    n.getParam("/recorder/rawDataFileName", rawDataFileName);
+    n.getParam("/recorder/pubDataFileName", pubDataFileName);
+    cout<<rawDataFileName<<endl;
+    rawDataStream.open(rawDataFileName, ios::out);
+    pubDataStream.open(pubDataFileName, ios::out);
 
     // SOCKET
     int sockfd;
