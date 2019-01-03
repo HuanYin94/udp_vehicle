@@ -25,6 +25,11 @@ target_link_libraries(server
 ${catkin_LIBRARIES}
 )
 
+add_executable(recorder src/recorder.cpp)
+target_link_libraries(recorder
+${catkin_LIBRARIES}
+)
+
 add_executable(sender src/sender.cpp)
 target_link_libraries(sender
 ${catkin_LIBRARIES}
