@@ -3,14 +3,25 @@
 
 #include "eigen_conversions/eigen_msg.h"
 
-#include <tf/transform_broadcaster.h>
-
 #include <fstream>
 #include <vector>
+#include <time.h>
+#include <math.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 
 #define PORT    8484
 #define MAXLINE 1024
 #define BYTENUM 30 // 16 + 4*3 + 2
+#define SLEEPSEC 1000000 // 10e6 = 1s
 
 using namespace std;
 
@@ -40,6 +51,9 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Sender");
     ros::NodeHandle n;
 
+
+
+
     int sockfd;
     char buffer[MAXLINE];
     struct sockaddr_in     servaddr;
@@ -57,6 +71,10 @@ int main(int argc, char **argv)
     servaddr.sin_port = htons(PORT);
     servaddr.sin_addr.s_addr = inet_addr("10.12.218.65");
 
+
+
+
+
     msg toVeh;
 
     toVeh.Header.flag = 0xcece;
@@ -70,6 +88,10 @@ int main(int argc, char **argv)
     toVeh.pose_y = 0;
     toVeh.heading = 0;
 
+
+
+
+
     int cnt = 0;
     while(true)
     {
@@ -77,11 +99,11 @@ int main(int argc, char **argv)
 
         memcpy(buffer, &toVeh, sizeof(toVeh));
 
-        sendto(sockfd, (const char *)buffer, sizeof(Message),
+        sendto(sockfd, (const char *)buffer, sizeof(toVeh),
             MSG_CONFIRM, (const struct sockaddr *) &servaddr,
                 sizeof(servaddr));
 
-        usleep(sec);
+        usleep(SLEEPSEC);
         cnt ++; // ID ++
     }
 

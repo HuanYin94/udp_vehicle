@@ -18,8 +18,8 @@ include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN_INCLUDE_DIRS}
-)
 
+)
 add_executable(server src/server.cpp)
 target_link_libraries(server
 ${catkin_LIBRARIES}

@@ -5,7 +5,7 @@
 
 #include <tf/transform_broadcaster.h>
 #include "geometry_msgs/Pose2D.h"
-#include "geometry_msgs/Vector3.h"
+#include "geometry_msgs/Quaternion.h"
 #include "ros/publisher.h"
 
 #include <fstream>
@@ -25,10 +25,6 @@
 #define PORT    9999
 #define MAXLINE 1024
 #define BYTENUM 60 // 16 for header only
-
-#define VEH_LEN  8.800
-#define VEH_WID  2.394
-#define TIRE_RD  0.875 // nouse
 
 using namespace std;
 
@@ -58,31 +54,6 @@ struct msg
     float wheel_angle_RR;
 };
 
-inline float to_radians(float degrees) {
-    return degrees * (M_PI / 180.0);
-}
-
-float wheel_velocity_on_center(float wheel_velocity, float wheel_angle )
-{
-    return wheel_velocity*std::cos(to_radians(wheel_angle));
-}
-
-float wheel_angular_on_center(float wheel_velocity_on_C, float wheel_angle, bool is_out )
-{
-    float turn_radius;
-    if(is_out)
-    {
-        turn_radius = 0.5*(-VEH_WID + VEH_LEN/std::cos(std::abs(to_radians(wheel_angle))));
-    }
-    else
-    {
-        turn_radius = 0.5*(VEH_WID + VEH_LEN/std::cos(std::abs(to_radians(wheel_angle))));
-    }
-
-    return wheel_velocity_on_C / turn_radius;
-
-}
-
 
 int main(int argc, char **argv)
 {
@@ -92,8 +63,8 @@ int main(int argc, char **argv)
     ros::NodeHandle n;
 
     ros::Publisher mag_pose_pub = n.advertise<geometry_msgs::Pose2D>("mag_pose", 100);
-    ros::Publisher wheel_odom_pub = n.advertise<geometry_msgs::Vector3>("wheel_odom", 100);
-
+    ros::Publisher wheel_velocity_pub = n.advertise<geometry_msgs::Quaternion>("wheel_velocity", 100);
+    ros::Publisher wheel_angle_pub = n.advertise<geometry_msgs::Quaternion>("wheel_angle", 100);
 
     // SOCKET
     int sockfd;
@@ -128,9 +99,9 @@ int main(int argc, char **argv)
     socklen_t len;
     geometry_msgs::Pose2D mag_pose;
     int status;
-    geometry_msgs::Vector3 wheel_odom;
-    float v_on_center_FL, v_on_center_FR, v_on_center_RL, v_on_center_RR,
-            w_on_center_FL, w_on_center_FR, w_on_center_RL, w_on_center_RR;
+    // quaternion for just storing
+    geometry_msgs::Quaternion wheel_velocity_four_wheels;
+    geometry_msgs::Quaternion wheel_angle_four_wheels;
 
     // loop closing
     while(n.ok())
@@ -173,23 +144,20 @@ int main(int argc, char **argv)
         mag_pose.theta = dataFromVeh.mag_heading;
         mag_pose_pub.publish(mag_pose);
 
-        // compute and publish wheel odometry message
-        v_on_center_FL = wheel_velocity_on_center(dataFromVeh.wheel_velocity_FL, dataFromVeh.wheel_angle_FL);
-        v_on_center_FR = wheel_velocity_on_center(dataFromVeh.wheel_velocity_FR, dataFromVeh.wheel_angle_FR);
-        v_on_center_RL = wheel_velocity_on_center(dataFromVeh.wheel_velocity_RL, dataFromVeh.wheel_angle_RL);
-        v_on_center_RR = wheel_velocity_on_center(dataFromVeh.wheel_velocity_RR, dataFromVeh.wheel_angle_RR);
+        // publish the wheel messages
+        wheel_velocity_four_wheels.x = dataFromVeh.wheel_velocity_FL;
+        wheel_velocity_four_wheels.y = dataFromVeh.wheel_velocity_FR;
+        wheel_velocity_four_wheels.z = dataFromVeh.wheel_velocity_RL;
+        wheel_velocity_four_wheels.w = dataFromVeh.wheel_velocity_RR;
 
-        w_on_center_FL = wheel_angular_on_center(dataFromVeh.wheel_velocity_FL, dataFromVeh.wheel_angle_FL, true);
-        w_on_center_FR = wheel_angular_on_center(dataFromVeh.wheel_velocity_FR, dataFromVeh.wheel_angle_FR, false);
-        w_on_center_RL = wheel_angular_on_center(dataFromVeh.wheel_velocity_RL, dataFromVeh.wheel_angle_RL, true);
-        w_on_center_RR = wheel_angular_on_center(dataFromVeh.wheel_velocity_RR, dataFromVeh.wheel_angle_RR, false);
+        wheel_angle_four_wheels.x = dataFromVeh.wheel_angle_FL;
+        wheel_angle_four_wheels.y = dataFromVeh.wheel_angle_FR;
+        wheel_angle_four_wheels.z = dataFromVeh.wheel_angle_RL;
+        wheel_angle_four_wheels.w = dataFromVeh.wheel_angle_RR;
 
-        // velocity in x, angular in y
-        wheel_odom.x = (v_on_center_FL + v_on_center_FR + v_on_center_RL + v_on_center_RR) / 4;
-        wheel_odom.y = (w_on_center_FL + w_on_center_FR + w_on_center_RL + w_on_center_RR) / 4;
-        wheel_odom.z = 0;
+        wheel_velocity_pub.publish(wheel_velocity_four_wheels);
+        wheel_angle_pub.publish(wheel_angle_four_wheels);
 
-        wheel_odom_pub.publish(wheel_odom);
 
     }
 
