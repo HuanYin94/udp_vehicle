@@ -4,8 +4,8 @@
 #include "eigen_conversions/eigen_msg.h"
 
 #include <tf/transform_broadcaster.h>
-#include "geometry_msgs/Pose2D.h"
-#include "geometry_msgs/Quaternion.h"
+#include "geometry_msgs/PointStamped.h"
+#include "geometry_msgs/QuaternionStamped.h"
 #include "ros/publisher.h"
 
 #include <fstream>
@@ -62,9 +62,16 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Server");
     ros::NodeHandle n;
 
-    ros::Publisher mag_pose_pub = n.advertise<geometry_msgs::Pose2D>("mag_pose", 100);
-    ros::Publisher wheel_velocity_pub = n.advertise<geometry_msgs::Quaternion>("wheel_velocity", 100);
-    ros::Publisher wheel_angle_pub = n.advertise<geometry_msgs::Quaternion>("wheel_angle", 100);
+    ros::Publisher mag_pose_pub = n.advertise<geometry_msgs::PointStamped>("mag_pose", 100);
+    ros::Publisher wheel_velocity_pub = n.advertise<geometry_msgs::QuaternionStamped>("wheel_velocity", 100);
+    ros::Publisher wheel_angle_pub = n.advertise<geometry_msgs::QuaternionStamped>("wheel_angle", 100);
+
+    // recorder setup
+    string rawDataFileName;
+    ofstream rawDataStream;
+    n.getParam("/server/rawDataFileName", rawDataFileName);
+    cout<<rawDataFileName<<endl;
+    rawDataStream.open(rawDataFileName, ios::out);
 
     // SOCKET
     int sockfd;
@@ -97,16 +104,19 @@ int main(int argc, char **argv)
     // MSG
     msg dataFromVeh;
     socklen_t len;
-    geometry_msgs::Pose2D mag_pose;
     int status;
     // quaternion for just storing
-    geometry_msgs::Quaternion wheel_velocity_four_wheels;
-    geometry_msgs::Quaternion wheel_angle_four_wheels;
+    geometry_msgs::PointStamped mag_pose;
+    geometry_msgs::QuaternionStamped wheel_velocity_four_wheels;
+    geometry_msgs::QuaternionStamped wheel_angle_four_wheels;
+
+    mag_pose.header.frame_id = "world";
+    wheel_velocity_four_wheels.header.frame_id = "wheel";
+    wheel_angle_four_wheels.header.frame_id = "wheel";
 
     // loop closing
     while(n.ok())
     {
-        cout<<"----------------------------------------------"<<endl;
 
         status = recvfrom(sockfd, (char *)buffer, MAXLINE,
                     MSG_WAITALL, ( struct sockaddr *) &cliaddr,
@@ -114,53 +124,54 @@ int main(int argc, char **argv)
 
         memcpy(&dataFromVeh, buffer, sizeof(dataFromVeh));
 
-
-        // print out the message
-
-        printf("HEADER FLAG:    %x\n", dataFromVeh.Header.flag);
-        printf("HEADER TYPE:    %x\n", dataFromVeh.Header.type);
+        // no print out, it's in record cpp
+        cout<<"---------------------"<<endl;
         printf("HEADER ID:      %d\n", dataFromVeh.Header.ID);
-        printf("HEADER LEN:     %d\n", dataFromVeh.Header.length);
-        printf("HEADER SEC:     %d\n", dataFromVeh.Header.sec);
-        printf("HEADER MSEC:    %d\n", dataFromVeh.Header.miliSec);
 
-        printf("MAG POSE X:     %f\n", dataFromVeh.mag_pose_x);
-        printf("MAG POSE Y:     %f\n", dataFromVeh.mag_pose_y);
-        printf("MAG POSE H:     %f\n", dataFromVeh.mag_heading);
+        ros::Time timeStamp = ros::Time::now();
 
-        printf("WHEEL VEL FL:   %f\n", dataFromVeh.wheel_velocity_FL);
-        printf("WHEEL VEL FR:   %f\n", dataFromVeh.wheel_velocity_FR);
-        printf("WHEEL VEL RL:   %f\n", dataFromVeh.wheel_velocity_RL);
-        printf("WHEEL VEL RR:   %f\n", dataFromVeh.wheel_velocity_RR);
-
-        printf("WHEEL ANG FL:   %f\n", dataFromVeh.wheel_angle_FL);
-        printf("WHEEL ANG FR:   %f\n", dataFromVeh.wheel_angle_FR);
-        printf("WHEEL ANG RL:   %f\n", dataFromVeh.wheel_angle_RL);
-        printf("WHEEL ANG RR:   %f\n", dataFromVeh.wheel_angle_RR);
-
-        // publish the pose message
-        mag_pose.x = dataFromVeh.mag_pose_x;
-        mag_pose.y = dataFromVeh.mag_pose_y;
-        mag_pose.theta = dataFromVeh.mag_heading;
+        // publish the pose message using pointXYZ
+        mag_pose.header.stamp = timeStamp;
+        mag_pose.point.x = dataFromVeh.mag_pose_x;
+        mag_pose.point.y = dataFromVeh.mag_pose_y;
+        mag_pose.point.z = dataFromVeh.mag_heading;
         mag_pose_pub.publish(mag_pose);
 
-        // publish the wheel messages
-        wheel_velocity_four_wheels.x = dataFromVeh.wheel_velocity_FL;
-        wheel_velocity_four_wheels.y = dataFromVeh.wheel_velocity_FR;
-        wheel_velocity_four_wheels.z = dataFromVeh.wheel_velocity_RL;
-        wheel_velocity_four_wheels.w = dataFromVeh.wheel_velocity_RR;
 
-        wheel_angle_four_wheels.x = dataFromVeh.wheel_angle_FL;
-        wheel_angle_four_wheels.y = dataFromVeh.wheel_angle_FR;
-        wheel_angle_four_wheels.z = dataFromVeh.wheel_angle_RL;
-        wheel_angle_four_wheels.w = dataFromVeh.wheel_angle_RR;
+
+        // publish the wheel messages
+        wheel_velocity_four_wheels.header.stamp = timeStamp;
+        wheel_velocity_four_wheels.quaternion.x = dataFromVeh.wheel_velocity_FL;
+        wheel_velocity_four_wheels.quaternion.y = dataFromVeh.wheel_velocity_FR;
+        wheel_velocity_four_wheels.quaternion.z = dataFromVeh.wheel_velocity_RL;
+        wheel_velocity_four_wheels.quaternion.w = dataFromVeh.wheel_velocity_RR;
+
+        wheel_angle_four_wheels.header.stamp = timeStamp;
+        wheel_angle_four_wheels.quaternion.x = dataFromVeh.wheel_angle_FL;
+        wheel_angle_four_wheels.quaternion.y = dataFromVeh.wheel_angle_FR;
+        wheel_angle_four_wheels.quaternion.z = dataFromVeh.wheel_angle_RL;
+        wheel_angle_four_wheels.quaternion.w = dataFromVeh.wheel_angle_RR;
 
         wheel_velocity_pub.publish(wheel_velocity_four_wheels);
         wheel_angle_pub.publish(wheel_angle_four_wheels);
 
 
+
+
+        // Save
+        rawDataStream << dataFromVeh.Header.flag << "  " << dataFromVeh.Header.type << "  "
+                         << dataFromVeh.Header.ID << "  " << dataFromVeh.Header.length << "  "
+                            << dataFromVeh.Header.sec << "  " << dataFromVeh.Header.miliSec << "  "
+                               << dataFromVeh.mag_pose_x << "  " << dataFromVeh.mag_pose_y << "  "
+                                  << dataFromVeh.mag_heading << "  " << dataFromVeh.wheel_velocity_FL << "  "
+                                     << dataFromVeh.wheel_velocity_FR << "  " << dataFromVeh.wheel_velocity_RL << "  "
+                                       << dataFromVeh.wheel_velocity_RR << "  " << dataFromVeh.wheel_angle_FL << "  "
+                                          << dataFromVeh.wheel_angle_FR << "  " << dataFromVeh.wheel_angle_RL << "  "
+                                             << dataFromVeh.wheel_angle_RR << "  " << timeStamp << endl;
+
     }
 
+    rawDataStream.close();
 
     return 0;
 }

@@ -1,7 +1,8 @@
 <launch>
 
   <node pkg="udp_vehicle" type="server" name="server" output="screen">
-
+	
+    <param name="rawDataFileName" value="/home/yh/some_zhenhua/01.10/test1.txt"/>
 
   </node>
 
