@@ -22,7 +22,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#define PORT    9999
+#define PORT    7000
 #define MAXLINE 1024
 #define BYTENUM 60 // 16 for header only
 
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 
 
 
-        // publish the wheel messages
+        // publish the wheel messages using four elements in quaternion
         wheel_velocity_four_wheels.header.stamp = timeStamp;
         wheel_velocity_four_wheels.quaternion.x = dataFromVeh.wheel_velocity_FL;
         wheel_velocity_four_wheels.quaternion.y = dataFromVeh.wheel_velocity_FR;

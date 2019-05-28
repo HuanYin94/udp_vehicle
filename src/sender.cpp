@@ -17,11 +17,13 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "tf/transform_listener.h"
+#include "geometry_msgs/Pose2D.h"
 
-#define PORT    8484
+#define PORT    8844
 #define MAXLINE 1024
 #define BYTENUM 30 // 16 + 4*3 + 2
-#define SLEEPSEC 1000000 // 10e6 = 1s
+#define SLEEPSEC 50000 //20Hz // 10e6 = 1s
 
 using namespace std;
 
@@ -35,7 +37,7 @@ struct header
     unsigned int miliSec;
 };
 
-struct msg
+struct udpMsg
 {
     struct header Header;
     float pose_x;
@@ -44,6 +46,41 @@ struct msg
     unsigned short int status;
 };
 
+int sockfd;
+char buffer[MAXLINE];
+struct sockaddr_in servaddr;
+
+int idCnt = 0x0000;
+
+void senderCallback(const geometry_msgs::Pose2D::ConstPtr& msg)
+{
+    udpMsg toVeh;
+
+    toVeh.Header.flag = 0xcece;
+    toVeh.Header.type = 0x0001;
+    toVeh.Header.ID = idCnt;
+    toVeh.Header.length = 16;
+    toVeh.Header.sec = ros::Time::now().toSec();
+    toVeh.Header.miliSec = ros::Time::now().toNSec();
+
+    toVeh.pose_x = msg->x;
+    toVeh.pose_y = msg->y;
+    toVeh.heading = msg->theta;
+    toVeh.status = 1;
+
+    memcpy(buffer, &toVeh, sizeof(toVeh));
+
+    sendto(sockfd, (const char *)buffer, sizeof(toVeh),
+        MSG_CONFIRM, (const struct sockaddr *) &servaddr,
+            sizeof(servaddr));
+
+    cout<<toVeh.Header.ID <<"  "<<
+          toVeh.pose_x<<"  "<<
+          toVeh.pose_y<<"  "<<
+          toVeh.heading<<endl;
+
+    idCnt = idCnt + 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -51,12 +88,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Sender");
     ros::NodeHandle n;
 
-
-
-
-    int sockfd;
-    char buffer[MAXLINE];
-    struct sockaddr_in     servaddr;
+    // tf & transform
 
     // Creating socket file descriptor
     if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
@@ -69,28 +101,13 @@ int main(int argc, char **argv)
     // Filling server information
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
-    servaddr.sin_addr.s_addr = inet_addr("10.12.218.65");
+    servaddr.sin_addr.s_addr = inet_addr("192.168.1.50");
 
 
+    ros::Subscriber sub = n.subscribe("veh_sta_udp", 1, senderCallback);
 
 
-
-    msg toVeh;
-
-    toVeh.Header.flag = 0xcece;
-    toVeh.Header.type = 0x0001;
-    toVeh.Header.ID = 0x0000;
-    toVeh.Header.length = 16;
-    toVeh.Header.sec = 0;
-    toVeh.Header.miliSec = 0;
-
-    toVeh.pose_x = 0;
-    toVeh.pose_y = 0;
-    toVeh.heading = 0;
-
-
-
-
+    /*
 
     int cnt = 0;
     while(true)
@@ -108,6 +125,8 @@ int main(int argc, char **argv)
     }
 
     close(sockfd);
+
+    */
 
     return 0;
 }
