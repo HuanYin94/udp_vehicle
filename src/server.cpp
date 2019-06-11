@@ -23,9 +23,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#define PORT    7000
+#define PORT    9999
 #define MAXLINE 1024
-#define BYTENUM 60 // 16 for header only
+//#define BYTENUM 60 // 16 for header only
+#define BYTENUM 40
 
 using namespace std;
 
@@ -70,7 +71,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n;
 
     ros::Publisher mag_pose_pub = n.advertise<geometry_msgs::PointStamped>("mag_pose", 1);
-    ros::Publisher velocity_angular_pub = n.advertise<geometry_msgs::Vector3Stamped>("velocity_angluar", 1);
+    ros::Publisher velocity_angular_pub = n.advertise<geometry_msgs::Vector3Stamped>("velocity_angular", 1);
 
     // SOCKET
     int sockfd;
@@ -110,7 +111,6 @@ int main(int argc, char **argv)
     geometry_msgs::Vector3Stamped velocity_angular_data;
 
     mag_pose.header.frame_id = "world";
-    velocity_angular_data.header.frame_id = "vehicle";
     velocity_angular_data.header.frame_id = "vehicle";
 
     // loop closing

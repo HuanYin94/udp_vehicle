@@ -50,7 +50,7 @@ int sockfd;
 char buffer[MAXLINE];
 struct sockaddr_in servaddr;
 
-int idCnt = 0x0000;
+unsigned short int idCnt = 0x0000;
 
 void senderCallback(const geometry_msgs::Pose2D::ConstPtr& msg)
 {
@@ -70,7 +70,7 @@ void senderCallback(const geometry_msgs::Pose2D::ConstPtr& msg)
 
     memcpy(buffer, &toVeh, sizeof(toVeh));
 
-    sendto(sockfd, (const char *)buffer, sizeof(toVeh),
+    sendto(sockfd, (const char *)buffer, BYTENUM,
         MSG_CONFIRM, (const struct sockaddr *) &servaddr,
             sizeof(servaddr));
 
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     // Filling server information
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
-    servaddr.sin_addr.s_addr = inet_addr("192.168.1.50");
+    servaddr.sin_addr.s_addr = inet_addr("192.168.1.12");
 
 
     ros::Subscriber sub = n.subscribe("veh_sta_udp", 1, senderCallback);
